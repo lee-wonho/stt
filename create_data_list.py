@@ -1,6 +1,17 @@
 import pandas as pd
-from tqdm import trange
 import random
+import os
+from os.path import getsize
+
+def foldernum_padding(filenum):
+    if filenum<10:
+        return '000'+str(filenum)
+    elif filenum<100:
+        return '00'+str(filenum)
+    elif filenum<1000:
+        return '0'+str(filenum)
+    else:
+        return str(filenum)
 
 def filenum_padding(filenum):
     if filenum < 10:
@@ -16,28 +27,49 @@ def filenum_padding(filenum):
     else:
         return str(filenum)
 
-TOTAL_NUM=622545
 TRAIN_NUM=int(622545*0.98) #98퍼센트를 학습데이터로
-TEST_NUM = TOTAL_NUM-TRAIN_NUM
+TEST_NUM = 622545-TRAIN_NUM
 
-aihub_labels = pd.read_csv("test_labels.csv", encoding='cp949')
-rare_labels=aihub_labels['char'][2036:]
+cfnum=0
+fnum=0
 
-train_data_list = {'audio':[], 'label':[]}
-test_data_list = {'audio':[],'label':[]}
-
-aihub_labels = pd.read_csv('test_labels.csv', encoding='cp949')
-rare_labels = aihub_labels['char'][2037:]
-
-fname='KsponSpeech_'
-target_fname = 'KsponScript_'
+BASE_PATH = "KsponSpeech_"
 
 audio_paths=[]
 target_paths=[]
 
-for filenum in trange(1, TOTAL_NUM):
-    audio_paths.append(fname + filenum_padding(filenum)+".wav")
-    target_paths.append(target_fname + filenum_padding(filenum)+'.txt')
+for i in range(1,6):
+    os.chdir(BASE_PATH+"0"+str(i))
+    if i !=5:
+        for j in range(0,125):
+            cfnum+=1
+            os.chdir(BASE_PATH+foldernum_padding(cfnum))
+            for k in range(0,1000):
+                fnum+=1
+                txt = BASE_PATH + filenum_padding(fnum) + '.txt'
+                f = open(txt, 'r')
+                s = f.readline()
+                if len(s)<=100:
+                    audio_paths.append(BASE_PATH + filenum_padding(fnum) + ".wav")
+                    target_paths.append(BASE_PATH + filenum_padding(fnum) + '.txt')
+                f.close()
+            os.chdir("../")
+        os.chdir("../")
+    else:
+        for j in range(0,127):
+            cfnum+=1
+            os.chdir(BASE_PATH+foldernum_padding(cfnum))
+            for k in range(0,1000):
+                fnum+=1
+                txt = BASE_PATH + filenum_padding(fnum) + '.txt'
+                f = open(txt, 'r')
+                s = f.readline()
+                if len(s) <= 100:
+                    audio_paths.append(BASE_PATH + filenum_padding(fnum) + ".wav")
+                    target_paths.append(BASE_PATH + filenum_padding(fnum) + '.txt')
+                f.close()
+            os.chdir("../")
+        os.chdir("../")
 
 data_paths = list(zip(audio_paths, target_paths))
 random.shuffle(data_paths)
@@ -53,9 +85,7 @@ test_dict={
     'label':[]
 }
 
-PATH = 'C:\\Users\\khak1\\Desktop\\2020년\\광인사\\[라젠]STT 기업 프로젝트\\data\\wav\\KsponSpeech\\'
-
-for idx in trange(len(audio_paths)):
+for idx in range(len(audio_paths)):
     audio=audio_paths[idx]
     target=target_paths[idx]
 
@@ -67,26 +97,12 @@ for idx in trange(len(audio_paths)):
         test_dict['label'].append(target)
 
     else:
-        rare_in = False
-        sentence=None
-        with open(PATH+(audio).split('.')[0]+".txt")as f:
-            sentence = f.readline()
-
-        for rare in rare_labels:
-            if rare in sentence:
-                rare_in=True
-                break
-        if rare_in:
-            test_dict['audio'].append(audio)
-            test_dict['label'].append(target)
-
-        else:
-            train_dict['audio'].append(audio)
-            train_dict['label'].append(target)
+        train_dict['audio'].append(audio)
+        train_dict['label'].append(target)
 
 
 test_df = pd.DataFrame(test_dict)
 train_df = pd.DataFrame(train_dict)
 
-test_df.to_csv("test_list.csv", encoding='cp949', index=False)
-train_df.to_csv("train_list.csv", encoding='cp949', index=False)
+test_df.to_csv("test_list.csv", encoding='utf-8', index=False)
+train_df.to_csv("train_list.csv", encoding='utf-8', index=False)
