@@ -2,58 +2,47 @@ from model.train.encoder import  VoiceEncoder
 from model.train.decoder import AttnDecoderRNN
 from feature import get_feature, load_audio
 import numpy as np
-from torch import Tensor, LongTensor
+from torch import Tensor
 import torch.nn as nn
 import pandas as pd
+from torch import optim
+import torch
+from model.train import train
+from utils import load_label, sentence_to_target
 
 
 SOS_token = 0
 EOS_token = 1
 
-def load_label(filepath):
-    char2id = dict()
-    id2char = dict()
-
-    ch_labels = pd.read_csv(filepath, encoding='cp949')
-    id_list = ch_labels['id']
-    char_list = ch_labels['char']
-
-    for id, char in zip(id_list, char_list):
-        char2id[char] = id
-        id2char[id] = char
-
-    return char2id, id2char
-
-
-def sentence_to_target(sentence, char2id):
-    target = ""
-    for ch in sentence:
-        target += (str(char2id[ch]) + ' ')
-    return target[:-1]
-
-
-
-path = '../wav/KsponSpeech/KsponSpeech_01/KsponSpeech_0001/KsponSpeech_000001'
+path = '../wav/KsponSpeech/'\
+       'KsponSpeech_01/KsponSpeech_0001/KsponSpeech_000004'
 
 wave = load_audio(path+'.wav')
 with open(path+'.txt','r',encoding='utf-8') as file:
     txt = file.read()
 
-char2id , id2char = load_label('../train_labels.csv')
+char2id , id2char = load_label()
 embedded = sentence_to_target(txt,char2id)
 target = list(map(int,embedded.split()))
 
-encoder = VoiceEncoder(device='cpu')
+encoder = VoiceEncoder(device='cuda')
 decoder = AttnDecoderRNN(hidden_size = 256, output_size = len(char2id))
+
+optimizer = optim.Adam([
+    {'params': encoder.parameters()},
+    {'params': decoder.parameters(), 'lr': 1e-3}
+], lr=1e-2)
+criterion = nn.NLLLoss().cuda()
 
 data = get_feature(wave)
 ten = Tensor(np.expand_dims(data,axis=1))
+ten = ten.cuda()
 hidden = encoder.model(ten)
 
 embedding = nn.Embedding(2040,512)
 
 init = encoder.initHidden()
-
+loss = 0
 encoder_outputs , encoder_hidden = encoder(ten,init)
 
 print(ten.shape)
@@ -62,23 +51,33 @@ print(encoder_outputs.shape)
 print(encoder_hidden.shape)
 
 target_length = len(target)
-decoder_input = LongTensor([SOS_token])
+decoder_input = torch.tensor([[SOS_token]])
 
 decoder_words = []
 decoder_hidden = encoder_hidden
 
 print(embedding(decoder_input).shape)
 print(decoder_input)
-for di in range(target_length):
-    decoder_output, decoder_hidden, decoder_attn = decoder(decoder_input, decoder_hidden, encoder_outputs)
 
-    topv, topi = decoder_output.topk(1)
-    topi = np.asarray(topi)[0,0]
-    decoder_words.append(id2char[topi])
+optimizer.step()
 
-    decoder_input = LongTensor([target[di]])
-    print(decoder_input)
-    print(decoder_words)
+# for di in range(target_length):
+#     decoder_output, decoder_hidden, decoder_attn = decoder(decoder_input, decoder_hidden, encoder_outputs)
+#
+#     topv, topi = decoder_output.topk(1)
+#     topi = np.asarray(topi)[0,0]
+#     decoder_words.append(id2char[topi])
+#
+#     decoder_input = LongTensor([target[di]])
+#     print(decoder_words)
+#     loss += criterion(decoder_output, LongTensor([target[di]]))
+#
+#     if decoder_input == EOS_token:
+#         break
+# loss.backward()
+# encoder_optim.step()
+# decoder_optim.step()
 
-    if decoder_input == EOS_token:
-        break
+loss = train.train(ten,target,encoder,decoder,optimizer,criterion,device='cuda')
+
+print(loss)

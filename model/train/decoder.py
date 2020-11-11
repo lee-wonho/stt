@@ -6,14 +6,14 @@ import torch.nn.functional as F
 MAX_LENGTH = 100
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers = 3, dropout_p=0.2, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size, output_size, n_layers = 3, dropout_p=0.2, max_length=MAX_LENGTH, device ='cuda'):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.dropout_p = dropout_p
         self.max_length = max_length
         self.n_layers = n_layers
-
+        self.device = device
 
         self.embedding = nn.Embedding(self.output_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
@@ -21,6 +21,14 @@ class AttnDecoderRNN(nn.Module):
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers= n_layers, batch_first= True)
         self.out = nn.Linear(self.hidden_size, self.output_size)
+
+        if device =='cuda':
+            self.embedding = self.embedding.cuda()
+            self.attn = self.attn.cuda()
+            self.attn_combine = self.attn_combine.cuda()
+            self.dropout = self.dropout.cuda()
+            self.gru = self.gru.cuda()
+            self.out = self.out.cuda()
 
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)

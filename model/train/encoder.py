@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 
 class VoiceEncoder(nn.Module):
-    def __init__(self,max_length=50, hidden_size=256, n_layers=3, device = 'cuda'):
+    def __init__(self,max_length=100, hidden_size=256, n_layers=3, device = 'cuda'):
         super(VoiceEncoder,self).__init__()
         self.n_layers = n_layers
         self.hidden_size = hidden_size
@@ -24,8 +24,12 @@ class VoiceEncoder(nn.Module):
 
         self.rnn = nn.GRU(self.hidden_size, self.hidden_size, num_layers=n_layers)
 
+        if device == 'cuda':
+            self.model = self.model.cuda()
+            self.rnn = self.rnn.cuda()
+
     def forward(self, inputs, hidden):
-        input = self.model(Tensor(inputs))
+        input = self.model(inputs)
 
         outputs = torch.zeros(self.max_length, self.hidden_size, device=self.device)
 

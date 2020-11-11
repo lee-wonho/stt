@@ -2,8 +2,12 @@ import torch
 import random
 from torch import optim
 import torch.nn as nn
-import time, math
+import time
+import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
+from feature import load_audio, get_feature
+import numpy as np
+from utils import *
 
 
 SOS_token = 0
@@ -13,116 +17,89 @@ EOS_token = 1
 PATH = '../../model/'
 
 #한 스텝 처리
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, device, max_length= 50, teacher_forcing_ratio = 0.5):
-
+def train(input_tensor, target_tensor, encoder, decoder, optimizer, criterion, device='cuda'):
     encoder_hidden = encoder.initHidden()
+    optimizer.zero_grad()
 
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
+    target_length = len(target_tensor)
 
-    input_length = input_tensor.size(0)
-    target_length = target_tensor.size(0)
-
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+    encoder_outputs, encoder_hidden = encoder(input_tensor,encoder_hidden)
 
     loss = 0
 
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-
     decoder_input = torch.tensor([[SOS_token]], device=device)
-
     decoder_hidden = encoder_hidden
 
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
-    if use_teacher_forcing:
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target_tensor[di])
-            decoder_input = target_tensor[di]  # Teacher forcing
-
-    else:
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-
-            loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == EOS_token:
-                break
+    for di in range(target_length):
+        decoder_output, decoder_hidden, decoder_attention = decoder(
+            decoder_input, decoder_hidden, encoder_outputs)
+        loss += criterion(decoder_output, torch.tensor([target_tensor[di]],device=device))
+        decoder_input = torch.tensor([target_tensor[di]],device=device)
 
     loss.backward()
 
-    encoder_optimizer.step()
-    decoder_optimizer.step()
+    optimizer.step()
 
-    return loss.item() / target_length
+    return loss / target_length
 
 
-def trainIters(encoder, decoder, n_iters, print_every=1000, save_every=100, learning_rate=0.01, resume=False):
+def trainEpoch(encoder, decoder, n_iters=1000, print_every=100, learning_rate=1e-2, resume=True,device='cuda'):
     start = time.time()
     writer = SummaryWriter('../../summary')
 
-    print_loss_total = 0  # Reset every print_every
-    plot_loss_total = 0  # Reset every plot_every
+    print_loss_total = 0
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    optimizer = optim.Adam([
+        {'params':encoder.parameters()},
+        {'params':decoder.parameters(),'lr':learning_rate/10}
+    ],lr = learning_rate)
+
+    iter = 0
 
     if resume == True:
-        checkpoint = torch.load(PATH + 'model.tar')
-        encoder = encoder.load_state_dict(checkpoint['encoder'])
-        decoder = decoder.load_state_dict(checkpoint['decoder'])
+        checkpoint = torch.load(PATH + 'model.tar',map_location=device)
+        encoder.load_state_dict(checkpoint['encoder']).to(device)
+        decoder.load_state_dict(checkpoint['decoder']).to(device)
         iter = checkpoint['iter']
-        encoder_optimizer.load_state_dict(checkpoint['en_optimizer'])
-        decoder_optimizer.load_state_dict(checkpoint['de_optimizer'])
+        optimizer.load_state_dict(checkpoint['optimizer']).to(device)
+        loss = checkpoint['loss']
+        print_loss_total = checkpoint['pr_loss']
 
-    training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]  # 데이터 가져오는거
+    train_set = get_train()
+    char2id, id2char = load_label('../train_labels.csv')
+    criterion = nn.NLLLoss().to(device)
 
-    criterion = nn.NLLLoss() # 손실 새로 설정
+    for it in range(n_iters):
 
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
-        input_tensor = training_pair[0]
-        target_tensor = training_pair[1]
+        wave = load_audio(train_set[iter]+'.wav')
+        data = get_feature(wave)
+        input_tensor = torch.tensor(np.expand_dims(data,axis=1))
+
+        with open(train_set[iter]+'.txt','r',encoding='utf-8') as file:
+            txt = file.read()
+        target_tensor = list(map(int,sentence_to_target(txt,char2id).split()))
 
         loss = train(input_tensor, target_tensor, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion)
+                     decoder, optimizer, criterion, device)
 
         print_loss_total += loss
-        plot_loss_total += loss
 
         if iter % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg))
-        if iter % save_every == 0:
-            torch.save({
-                'encoder': encoder.state_dict(),
-                'decoder': decoder.state_dict(),
-                'en_optimizer': encoder_optimizer.state_dict(),
-                'de_optimizer': decoder_optimizer.state_dict(),
-                'iter': iter,
-            }, PATH + 'model.tar')
+            print('[INFO] %s (%d %d%%) %.4f' % (timeSince(start, it / n_iters),
+                                         it, it / n_iters * 100, print_loss_avg))
+        iter += 1
 
         writer.add_scalar('Loss', loss, iter)
         writer.add_scalar()
 
+    torch.save({
+        'encoder': encoder.state_dict(),
+        'decoder': decoder.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'iter': iter,
+        'loss': loss,
+        'pr_loss': print_loss_total,
+    }, PATH + 'model.tar')
 
-def timeSince(since, percent):
-    now = time.time()
-    s = now - since
-    es = s / (percent)
-    rs = es - s
-    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
-
-def as_minutes(s):
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)

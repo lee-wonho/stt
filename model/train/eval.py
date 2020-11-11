@@ -1,22 +1,27 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from utils import *
+from feature import get_feature
+import numpy as np
+
+
 
 MAX_LENGTH = 50
 SOS_token = 0
 EOS_token = 1
 
-def evaluate(encoder, decoder, sentence, device, max_length=MAX_LENGTH):
+def evaluate(encoder, decoder, wave, max_length=MAX_LENGTH, device ='cuda'):
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence) # test 데이터 셋에 대한 호출
-        input_length = input_tensor.size()[0]
+        char2id , id2char = load_label()
+
+        data = get_feature(wave)
+
+        input_tensor = torch.tensor(np.expand_dims(data,axis=1),device=device) # test 데이터 셋에 대한 호출
 
         encoder_hidden = encoder.initHidden()
 
         encoder_outputs, encoder_hidden = encoder(input_tensor,encoder_hidden)
 
         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
-
         decoder_hidden = encoder_hidden
 
         decoded_words = []
@@ -27,11 +32,12 @@ def evaluate(encoder, decoder, sentence, device, max_length=MAX_LENGTH):
                 decoder_input, decoder_hidden, encoder_outputs)
             decoder_attentions[di] = decoder_attention.data
             topv, topi = decoder_output.data.topk(1)
-            if topi.item() == EOS_token:
+
+            if topi == EOS_token:
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words.append(id2char[topi])
 
             decoder_input = topi.squeeze().detach()
 
