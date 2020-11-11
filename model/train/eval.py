@@ -3,20 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 MAX_LENGTH = 50
-
+SOS_token = 0
+EOS_token = 1
 
 def evaluate(encoder, decoder, sentence, device, max_length=MAX_LENGTH):
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
+        input_tensor = tensorFromSentence(input_lang, sentence) # test 데이터 셋에 대한 호출
         input_length = input_tensor.size()[0]
+
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei],
-                                                     encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
+        encoder_outputs, encoder_hidden = encoder(input_tensor,encoder_hidden)
 
         decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
 

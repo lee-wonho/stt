@@ -1,13 +1,12 @@
 import torch.nn as nn
-from torch.nn import MultiheadAttention
 import torch
 import torch.nn.functional as F
 
 
-MAX_LENGTH = 50
+MAX_LENGTH = 100
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers = 3, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size, output_size, n_layers = 3, dropout_p=0.2, max_length=MAX_LENGTH):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -20,7 +19,7 @@ class AttnDecoderRNN(nn.Module):
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers= n_layers)
+        self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers= n_layers, batch_first= True)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):

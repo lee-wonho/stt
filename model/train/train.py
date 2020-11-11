@@ -67,13 +67,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 def trainIters(encoder, decoder, n_iters, print_every=1000, save_every=100, learning_rate=0.01, resume=False):
     start = time.time()
     writer = SummaryWriter('../../summary')
-    if resume == True:
-        checkpoint = torch.load(PATH + 'model.tar')
-        encoder = encoder.load_state_dict(checkpoint['encoder'])
-        decoder = decoder.load_state_dict(checkpoint['decoder'])
-        iter = nn.Module.load_state_dict(checkpoint['iter'])
-        encoder_optimizer = nn.Module.load_state_dict(checkpoint['en_optimizer'])
-        decoder_optimizer = nn.Module.load_state_dict(checkpoint['de_optimizer'])
 
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
@@ -81,9 +74,17 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, save_every=100, lear
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
+    if resume == True:
+        checkpoint = torch.load(PATH + 'model.tar')
+        encoder = encoder.load_state_dict(checkpoint['encoder'])
+        decoder = decoder.load_state_dict(checkpoint['decoder'])
+        iter = checkpoint['iter']
+        encoder_optimizer.load_state_dict(checkpoint['en_optimizer'])
+        decoder_optimizer.load_state_dict(checkpoint['de_optimizer'])
 
-    criterion = nn.NLLLoss()
+    training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]  # 데이터 가져오는거
+
+    criterion = nn.NLLLoss() # 손실 새로 설정
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
