@@ -1,5 +1,4 @@
 import torch
-import random
 from torch import optim
 import torch.nn as nn
 import time
@@ -44,14 +43,15 @@ def train(input_tensor, target_tensor, encoder, decoder, optimizer, criterion, d
 
 
 def trainEpoch(encoder, decoder, n_iters=1000, print_every=100, learning_rate=1e-2, resume=True,device='cuda'):
+    BASE_PATH = '../wav/KsponSpeech/'
     start = time.time()
     writer = SummaryWriter('../../summary')
 
     print_loss_total = 0
 
     optimizer = optim.Adam([
-        {'params':encoder.parameters()},
-        {'params':decoder.parameters(),'lr':learning_rate/10}
+        {'params': encoder.parameters()},
+        {'params': decoder.parameters(),'lr':learning_rate/10}
     ],lr = learning_rate)
 
     iter = 0
@@ -66,16 +66,18 @@ def trainEpoch(encoder, decoder, n_iters=1000, print_every=100, learning_rate=1e
         print_loss_total = checkpoint['pr_loss']
 
     train_set = get_train()
-    char2id, id2char = load_label('../train_labels.csv')
+    char2id, id2char = load_label()
     criterion = nn.NLLLoss().to(device)
 
     for it in range(n_iters):
 
-        wave = load_audio(train_set[iter]+'.wav')
+        wave = load_audio(BASE_PATH+train_set[iter]+'.wav')
         data = get_feature(wave)
-        input_tensor = torch.tensor(np.expand_dims(data,axis=1))
-
-        with open(train_set[iter]+'.txt','r',encoding='utf-8') as file:
+        if device =='cpu':
+            input_tensor = torch.tensor(np.expand_dims(data,axis=1))
+        elif device == 'cuda':
+            input_tensor = torch.cuda.FloatTensor(np.expand_dims(data,axis=1))
+        with open(BASE_PATH+train_set[iter]+'.txt','r',encoding='utf-8') as file:
             txt = file.read()
         target_tensor = list(map(int,sentence_to_target(txt,char2id).split()))
 
@@ -84,7 +86,7 @@ def trainEpoch(encoder, decoder, n_iters=1000, print_every=100, learning_rate=1e
 
         print_loss_total += loss
 
-        if iter % print_every == 0:
+        if it % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
             print('[INFO] %s (%d %d%%) %.4f' % (timeSince(start, it / n_iters),
@@ -92,7 +94,7 @@ def trainEpoch(encoder, decoder, n_iters=1000, print_every=100, learning_rate=1e
         iter += 1
 
         writer.add_scalar('Loss', loss, iter)
-        writer.add_scalar()
+        #writer.add_scalar()
 
     torch.save({
         'encoder': encoder.state_dict(),

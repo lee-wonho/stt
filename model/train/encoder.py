@@ -25,8 +25,8 @@ class VoiceEncoder(nn.Module):
         self.rnn = nn.GRU(self.hidden_size, self.hidden_size, num_layers=n_layers)
 
         if device == 'cuda':
-            self.model = self.model.cuda()
-            self.rnn = self.rnn.cuda()
+            self.model = self.model.cuda('cuda')
+            self.rnn = self.rnn.cuda('cuda')
 
     def forward(self, inputs, hidden):
         input = self.model(inputs)

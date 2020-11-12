@@ -25,41 +25,39 @@ char2id , id2char = load_label()
 embedded = sentence_to_target(txt,char2id)
 target = list(map(int,embedded.split()))
 
-encoder = VoiceEncoder(device='cuda')
-decoder = AttnDecoderRNN(hidden_size = 256, output_size = len(char2id))
 
-optimizer = optim.Adam([
-    {'params': encoder.parameters()},
-    {'params': decoder.parameters(), 'lr': 1e-3}
-], lr=1e-2)
-criterion = nn.NLLLoss().cuda()
-
-data = get_feature(wave)
-ten = Tensor(np.expand_dims(data,axis=1))
-ten = ten.cuda()
-hidden = encoder.model(ten)
-
-embedding = nn.Embedding(2040,512)
-
-init = encoder.initHidden()
-loss = 0
-encoder_outputs , encoder_hidden = encoder(ten,init)
-
-print(ten.shape)
-print(hidden.shape)
-print(encoder_outputs.shape)
-print(encoder_hidden.shape)
-
-target_length = len(target)
-decoder_input = torch.tensor([[SOS_token]])
-
-decoder_words = []
-decoder_hidden = encoder_hidden
-
-print(embedding(decoder_input).shape)
-print(decoder_input)
-
-optimizer.step()
+# optimizer = optim.Adam([
+#     {'params': encoder.parameters()},
+#     {'params': decoder.parameters(), 'lr': 1e-3}
+# ], lr=1e-2)
+# criterion = nn.NLLLoss().cuda()
+#
+# data = get_feature(wave)
+# ten = Tensor(np.expand_dims(data,axis=1))
+# ten = ten.cuda()
+# hidden = encoder.model(ten)
+#
+# embedding = nn.Embedding(2040,512)
+#
+# init = encoder.initHidden()
+# loss = 0
+# encoder_outputs , encoder_hidden = encoder(ten,init)
+#
+# print(ten.shape)
+# print(hidden.shape)
+# print(encoder_outputs.shape)
+# print(encoder_hidden.shape)
+#
+# target_length = len(target)
+# decoder_input = torch.tensor([[SOS_token]])
+#
+# decoder_words = []
+# decoder_hidden = encoder_hidden
+#
+# print(embedding(decoder_input).shape)
+# print(decoder_input)
+#
+# optimizer.step()
 
 # for di in range(target_length):
 #     decoder_output, decoder_hidden, decoder_attn = decoder(decoder_input, decoder_hidden, encoder_outputs)
@@ -78,6 +76,10 @@ optimizer.step()
 # encoder_optim.step()
 # decoder_optim.step()
 
-loss = train.train(ten,target,encoder,decoder,optimizer,criterion,device='cuda')
+# loss = train.train(ten,target,encoder,decoder,optimizer,criterion,device='cuda')
 
-print(loss)
+encoder = VoiceEncoder(device='cuda')
+decoder = AttnDecoderRNN(hidden_size = 256, output_size = len(char2id))
+
+train.trainEpoch(encoder,decoder,resume=False)
+

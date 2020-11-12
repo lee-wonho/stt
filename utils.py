@@ -5,7 +5,7 @@ import pandas as pd
 def timeSince(since, percent):
     now = time.time()
     s = now - since
-    es = s / (percent)
+    es = s / (percent) if percent != 0 else 0
     rs = es - s
     return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
 
@@ -16,7 +16,7 @@ def as_minutes(s):
     return '%dm %ds' % (m, s)
 
 def get_path(filename):
-    base_path = '../wav/KsponSpeech'
+    base_path = '../wav/KsponSpeech/'
     df = pd.read_csv(base_path + filename)
     paths = df['path']
 
@@ -32,7 +32,7 @@ def load_label():
     char2id = dict()
     id2char = dict()
 
-    ch_labels = pd.read_csv('../train_labels.csv', encoding='cp949')
+    ch_labels = pd.read_csv('../test_labels.csv', encoding='cp949')
     id_list = ch_labels['id']
     char_list = ch_labels['char']
 
