@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'home.css' %}"/>
+</head>
+<body>
+    <header>
+        <h2>HERMES</h2>
+    </header>
+    <div class="container">
+        <video id="localVideo" autoplay playsinline ></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div id="record">Subtitle</div>
+    </div>
+    {% comment %} <audio autoplay controls></audio> {% endcomment %}
+
+    <div class="button">
+    <button id="startButton">Start</button>
+    <button id="callButton">Call</button>
+    <button id="hangupButton">Hang Up</button>
+    </div>
+
+    
+
+    <div style="max-width: 28em;" hidden>
+		<p>Convert recorded audio to:</p>
+		<select id="encodingTypeSelect" hidden>
+		  <option value="wav">Waveform Audio (.wav)</option>
+		  <option value="mp3">MP3 (MPEG-1 Audio Layer III) (.mp3)</option>
+		  <option value="ogg">Ogg Vorbis (.ogg)</option>
+		</select> 
+		<div id="controls">
+			<button id="recordButton" >Record</button>
+			<button id="stopButton" disabled>Stop</button>
+		</div>
+		<div id="formats" hidden ></div>
+		<pre id="log" hidden ></pre>
+
+		<pre>Recordings</pre>
+		<ol id="recordingsList"></ol>
+	</div>
+
+
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="static/main.js"></script>
+
+    <script src="static/WebAudioRecorder.min.js"></script>
+
+
+</body>
+</html>
